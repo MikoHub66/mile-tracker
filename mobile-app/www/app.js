@@ -2,6 +2,7 @@ import { store } from "./store.js";
 import { tracker, isNative } from "./native.js";
 import { configured } from "./firebase.js";
 import { WEB_MAP_URL } from "./shared/firebase-config.js";
+import { addBasemaps } from "./shared/basemaps.js";
 import {
   USES, EXCLUDE_REASONS, useById, excludeLabel, fmtTime, shortAddress, decodePolyline,
   haversineM, METERS_PER_MILE, round2, localParts, browserTz, needsReview,
@@ -44,8 +45,6 @@ $("#sheet").addEventListener("click", (e) => { if (e.target.matches("[data-close
 // Runs fn shortly after a sheet opens, unless the sheet (and its map) was closed first.
 const afterOpen = (map, fn) => setTimeout(() => map._mapPane && fn(), 60);
 
-const tileLayer = () =>
-  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "&copy; OpenStreetMap" });
 
 // ---------------- header: status + vehicle ----------------
 
@@ -254,7 +253,7 @@ function showTripMap(t) {
   openSheet(`<h3>${esc(t.startPlace || shortAddress(t.startAddress))} → ${esc(t.endPlace || shortAddress(t.endAddress))}</h3><div class="map" id="tripMap"></div>
     <button class="btn block" data-close>Close</button>`, () => {
     const map = L.map("tripMap", { zoomControl: false });
-    tileLayer().addTo(map);
+    addBasemaps(map);
     const pts = decodePolyline(t.path);
     if (pts.length < 2) pts.push([t.startLat, t.startLng], [t.endLat, t.endLng]);
     const line = L.polyline(pts, { color: useById(t.use).color, weight: 5 }).addTo(map);
@@ -324,7 +323,7 @@ async function findCar() {
      <button class="btn block" data-close>Close</button>`,
     () => {
       const map = L.map("carMap", { zoomControl: false }).setView([p.lat, p.lng], 18);
-      tileLayer().addTo(map);
+      addBasemaps(map);
       const icon = L.divIcon({ className: "", html: `<div class="car-pin">${CAR_SVG}</div>`, iconSize: [34, 34], iconAnchor: [17, 38] });
       L.marker([p.lat, p.lng], { icon }).addTo(map);
       L.circle([p.lat, p.lng], { radius: Math.max(10, p.acc || 30), color: "#1f2a37", weight: 1, fillOpacity: 0.08 }).addTo(map);
@@ -561,7 +560,7 @@ function editPlace(pl, index = -1) {
      </form>`,
     (el) => {
       const map = L.map("placeMap", { zoomControl: false }).setView([pl.lat, pl.lng], 16);
-      tileLayer().addTo(map);
+      addBasemaps(map);
       const circle = L.circle([pl.lat, pl.lng], { radius: pl.radius || 200 }).addTo(map);
       afterOpen(map, () => map.invalidateSize());
       $("[name=radius]", el).oninput = (e) => circle.setRadius(+e.target.value || 200);

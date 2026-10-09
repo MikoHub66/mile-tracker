@@ -1,7 +1,9 @@
 import { api, demo, geocode, route } from "./store.js";
+import { createTable, download } from "./table.js";
+import { addBasemaps } from "./shared/basemaps.js";
 import {
   USES, EXCLUDE_REASONS, useById, excludeLabel, fmtTime, shortAddress, decodePolyline, encodePolyline,
-  localParts, browserTz, applyWallClock, round2, MONTHS, reportTrips, monthSummary, buildCsv, needsReview, learnUse,
+  localParts, browserTz, applyWallClock, round2, MONTHS, reportTrips, monthSummary, buildCsv, buildTableCsv, needsReview, learnUse,
 } from "./shared/trips.js";
 
 const $ = (s, el = document) => el.querySelector(s);
@@ -16,6 +18,7 @@ const state = {
   vehicles: [],
   automation: {},
   selected: null,
+  pendingSelect: null,
   wholeMonth: false,
   showRemoved: false,
 };
@@ -46,7 +49,7 @@ dlg.addEventListener("click", (e) => {
 // ---------------- map ----------------
 
 const map = L.map("map", { zoomControl: true }).setView([39.8, -95.6], 4);
-L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "&copy; OpenStreetMap contributors" }).addTo(map);
+addBasemaps(map);
 const tripLayer = L.layerGroup().addTo(map);
 const lines = new Map();
 
@@ -109,7 +112,12 @@ function watchMonth() {
   let first = true;
   unsubMonth = api.watchTrips(from, to, (trips) => {
     state.monthTrips = trips;
-    renderAll(first);
+    renderAll(first && !state.pendingSelect);
+    if (state.pendingSelect && trips.some((t) => t.id === state.pendingSelect)) {
+      const id = state.pendingSelect;
+      state.pendingSelect = null;
+      select(id);
+    }
     first = false;
   });
 }
@@ -458,7 +466,11 @@ async function reportDialog() {
          <label class="field"><span>Use</span><select name="uses">${Object.entries(useSets).map(([k, s]) => `<option value="${k}">${esc(s.label)}</option>`).join("")}</select></label>
          <label class="field"><span>Vehicle</span><select name="vehicle"><option value="">All vehicles</option>${state.vehicles.map((v) => `<option>${esc(v.name)}</option>`).join("")}</select></label>
        </div>
-       <label><input type="checkbox" name="subtotals" checked> Include monthly subtotals and totals in the CSV</label>
+       <label class="field"><span>CSV format</span><select name="format">
+         <option value="report">Mileage report: counted trips, report columns</option>
+         <option value="table">Full table: every trip on every day, incl. removed, all columns</option>
+       </select></label>
+       <label id="subWrap"><input type="checkbox" name="subtotals" checked> Include monthly subtotals and totals in the CSV</label>
        <div id="rPreview"><p class="hint">Loading…</p></div>
        <div class="dlg-actions"><button type="button" class="btn" data-close>Close</button><button class="btn primary">Download CSV</button></div>
      </form>`,
@@ -494,15 +506,17 @@ async function reportDialog() {
              ${unclassified && o.uses.length ? `<div class="warnbox">${unclassified} unclassified trip(s) in this period aren't included. Classify them to count them.</div>` : ""}`
           : `<p class="hint" style="margin-top:12px">No trips match.</p>`;
       };
-      f.onchange = preview;
+      f.onchange = () => {
+        f.querySelector("#subWrap").hidden = f.format.value === "table";
+        preview();
+      };
       f.onsubmit = (e) => {
         e.preventDefault();
         const o = opts();
-        const csv = buildCsv(reportTrips(yearTrips, o), { subtotals: f.subtotals.checked });
-        const name = `mileage-${o.year}${o.month ? "-" + pad(o.month) : ""}${f.uses.value !== "all" ? "-" + f.uses.value : ""}.csv`;
-        const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv" })), download: name });
-        a.click();
-        setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+        const full = f.format.value === "table";
+        const csv = full ? buildTableCsv(reportTrips(yearTrips, { ...o, includeRemoved: true })) : buildCsv(reportTrips(yearTrips, o), { subtotals: f.subtotals.checked });
+        const name = `mileage-${full ? "table-" : ""}${o.year}${o.month ? "-" + pad(o.month) : ""}${f.uses.value !== "all" ? "-" + f.uses.value : ""}.csv`;
+        download(name, csv);
         toast(`Downloaded ${name}`);
       };
       preview();
@@ -510,6 +524,43 @@ async function reportDialog() {
   );
 }
 $("#btnReport").onclick = reportDialog;
+
+// ---------------- map / table views ----------------
+
+function setView(view) {
+  document.querySelectorAll(".view-switch button").forEach((b) => b.classList.toggle("on", b.dataset.view === view));
+  $("#app").classList.toggle("table-mode", view === "table");
+  $("#tableView").hidden = view !== "table";
+  if (view === "table") table.show();
+  else setTimeout(() => map.invalidateSize(), 0);
+  try {
+    localStorage.setItem("mt.view", view);
+  } catch {}
+}
+document.querySelector(".view-switch").onclick = (e) => {
+  const b = e.target.closest("button[data-view]");
+  if (b) setView(b.dataset.view);
+};
+
+const table = createTable({
+  api,
+  getVehicles: () => state.vehicles,
+  toast,
+  showOnMap(t) {
+    setView("map");
+    state.wholeMonth = false;
+    $("#wholeMonth").checked = false;
+    if (t.date.slice(0, 7) === state.month) {
+      state.day = t.date;
+      state.selected = null;
+      renderAll(false);
+      select(t.id);
+    } else {
+      state.pendingSelect = t.id;
+      setDay(t.date);
+    }
+  },
+});
 
 // ---------------- auth & boot ----------------
 
@@ -530,10 +581,18 @@ function start() {
   $("#app").hidden = false;
   $("#demoBar").hidden = !demo;
   map.invalidateSize();
-  api.watchVehicles((v) => { state.vehicles = v; });
+  api.watchVehicles((v) => {
+    state.vehicles = v;
+    table.vehiclesChanged();
+  });
   api.watchAutomation((a) => { state.automation = a; });
   watchMonth();
   setTimeout(autoLearn, 3000);
+  let saved = "map";
+  try {
+    saved = localStorage.getItem("mt.view") || "map";
+  } catch {}
+  if (saved === "table") setView("table");
 }
 
 api.onAuth((u) => {

@@ -3,7 +3,7 @@
 // yet, or with ?demo in the URL).
 
 import { firebaseConfig } from "./shared/firebase-config.js";
-import { normalizeTrip, newId, encodePolyline, haversineM, METERS_PER_MILE, round2, zonedToEpoch, browserTz } from "./shared/trips.js";
+import { normalizeTrip, newId, encodePolyline, haversineM, METERS_PER_MILE, round2, zonedToEpoch, browserTz, localParts } from "./shared/trips.js";
 
 const V = "10.13.0";
 export const configured = Boolean(firebaseConfig.apiKey) && firebaseConfig.apiKey !== "PASTE_ME";
@@ -23,7 +23,7 @@ if (!demo) {
 
 // ---------------- demo data ----------------
 
-const DEMO_KEY = "mt.web.demo";
+const DEMO_KEY = "mt.web.demo.v2";
 function demoData() {
   try {
     const d = JSON.parse(localStorage.getItem(DEMO_KEY));
@@ -83,6 +83,18 @@ function demoData() {
       hour += mins / 60 + 1 + rnd() * 3;
       at = to;
     }
+  }
+  // Featured sample: a real routed drive (OSRM) from Dundee, MI to Toledo, OH this morning.
+  {
+    const date = localParts(Date.now(), tz).date;
+    const startTs = zonedToEpoch(date, "08:00", tz);
+    trips.push(normalizeTrip({
+      id: "demo-dundee-toledo", source: "auto", vehicleId: "v1", date, tz, startTs, endTs: startTs + 36 * 60000,
+      startLat: 41.957276, startLng: -83.659685, endLat: 41.652812, endLng: -83.537889,
+      startAddress: "Main St, Dundee, MI 48131", endAddress: "Downtown Toledo, OH 43604",
+      gpsMiles: 29.87, miles: 29.87, use: "unclassified",
+      path: "_xa_G~wr}N]vEYhDq@lH]xDe@~Es@tH]pDUdCQhBQtBg@|E[rDiAbL|DaBhE_BpCc@rJyBjZyOjFuCx\\sQzMuGbIcCfJsAxI]rl@_@hbBmAlKG`PQlRGryAkAvqAg@j^K|k@Wbn@c@pJDzCTzDf@pHdBjFjBfD|AxFhD~MvJ~LbJhJ~GpJ~GrIlGdh@f_@bf@x]jIzFdCrAfE~ApD|@fDb@rDRxFAhIQzu@yAxV[tE\\pGpAfE~A~EnCxe@jb@`FrEbUdSzFtEfG`CxDh@dCFhBGr]wErPyBzG_@~Ta@vf@k@biAaBtWe@fn@cAtO{@xJsBvE{AjWkMhFiBf@M~A]zDy@`Iy@tMYpHOjHIb^o@xFIbQ[jPYjGK|J`@xGtAhG`C~CnBzIxHfHfHxHbGjMvEhFx@|CR|Rr@nNh@rJEdFcAhCyBfAsD?uEgBcJyAyHoDsWcA{GmAwHi@oFWaJWym@McWKac@`@iI~Gq`@x@cILmPy@yoAY_d@GiTJsDr@yHbCoL~FoVfAaGl@sHL}Hw@sq@?eFLqE`@uEhBiKxHsU`DsJlEaNtSio@zEyNlBeGbAkEz@eGdA_LtAiNzA}HjCkEjB}AxG}BtHiBzBq@rC}AdBmBlCyFzFyP|CgIfBaCnAgAvCuAdD[dJMhESvCo@`CmAxCkCtByD~FyR`B{F~FgPzEiKdC{DdBiB~B}A~CgB|@u@RYPo@He@BcD?eLB_G@eBHy@`BwEzAaEvAuDsCsC{BkBkFgE[WcFaEQC",
+    }));
   }
   for (const t of trips) t.vehicle = vehicles.find((v) => v.id === t.vehicleId).name;
   const data = { trips, vehicles, automation: { defaultVehicleId: "v1" } };
@@ -153,6 +165,32 @@ export const api = {
       return fireDemo();
     }
     await fbStore.updateDoc(fbStore.doc(this.col("trips"), id), { ...fields, updatedAt: Date.now() });
+  },
+
+  /** Bulk edit: updates = [{id, fields}]. One Firestore batch per 450 writes. */
+  async updateMany(updates) {
+    if (demo) {
+      for (const { id, fields } of updates) Object.assign(demoState.trips.find((t) => t.id === id) || {}, fields);
+      return fireDemo();
+    }
+    for (let i = 0; i < updates.length; i += 450) {
+      const batch = fbStore.writeBatch(db);
+      for (const { id, fields } of updates.slice(i, i + 450)) batch.update(fbStore.doc(this.col("trips"), id), { ...fields, updatedAt: Date.now() });
+      await batch.commit();
+    }
+  },
+
+  async deleteMany(ids) {
+    if (demo) {
+      const set = new Set(ids);
+      demoState.trips = demoState.trips.filter((t) => !set.has(t.id));
+      return fireDemo();
+    }
+    for (let i = 0; i < ids.length; i += 450) {
+      const batch = fbStore.writeBatch(db);
+      for (const id of ids.slice(i, i + 450)) batch.delete(fbStore.doc(this.col("trips"), id));
+      await batch.commit();
+    }
   },
 
   async createTrip(trip) {

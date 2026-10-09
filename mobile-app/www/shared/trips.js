@@ -184,10 +184,10 @@ const csvCell = (v) => {
  * given), matching `uses` (array of use ids, empty = all) and `vehicle` (name,
  * empty = all). Sorted by start time.
  */
-export function reportTrips(trips, { year, month = 0, uses = [], vehicle = "" } = {}) {
+export function reportTrips(trips, { year, month = 0, uses = [], vehicle = "", includeRemoved = false } = {}) {
   const prefix = month ? `${year}-${String(month).padStart(2, "0")}` : `${year}-`;
   return trips
-    .filter((t) => !t.excluded && t.date && t.date.startsWith(prefix))
+    .filter((t) => (includeRemoved || !t.excluded) && t.date && t.date.startsWith(prefix))
     .filter((t) => !uses.length || uses.includes(t.use || "unclassified"))
     .filter((t) => !vehicle || (t.vehicle || "") === vehicle)
     .sort((a, b) => a.startTs - b.startTs);
@@ -251,6 +251,38 @@ export function buildCsv(trips, { subtotals = true } = {}) {
     lines.push("");
     for (const u of USES) if (byUse[u.id]) lines.push(blank(`${u.label} total`, byUse[u.id]).map(csvCell).join(","));
     lines.push(blank("Grand total", total).map(csvCell).join(","));
+  }
+  return lines.join("\r\n") + "\r\n";
+}
+
+export const TABLE_HEADER = [
+  ...CSV_HEADER, "Counted in Reports", "Removed Reason", "GPS Miles", "Source", "Auto Rule", "Notes",
+];
+
+/** Full table export: every trip given (removed ones too), one row each, all editable fields. */
+export function buildTableCsv(trips) {
+  const lines = [TABLE_HEADER.map(csvCell).join(",")];
+  for (const t of [...trips].sort((a, b) => a.startTs - b.startTs)) {
+    lines.push(
+      [
+        t.vehicle || "",
+        fmtDateUS(t.date),
+        fmtTime(t.startTs, t.tz),
+        t.startAddress || "",
+        fmtTime(t.endTs, t.tz),
+        t.endAddress || "",
+        round2(t.miles).toFixed(2),
+        useLabel(t.use || "unclassified"),
+        t.excluded ? "No" : "Yes",
+        t.excluded ? excludeLabel(t.excludedReason) : "",
+        t.gpsMiles == null || t.gpsMiles === "" ? "" : round2(t.gpsMiles).toFixed(2),
+        t.source === "manual" ? "Manual" : "Phone",
+        t.autoRule || "",
+        t.notes || "",
+      ]
+        .map(csvCell)
+        .join(","),
+    );
   }
   return lines.join("\r\n") + "\r\n";
 }

@@ -1,17 +1,17 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import {
   encodePolyline, decodePolyline, zonedToEpoch, localParts, fmtTime, applyWallClock,
-  reportTrips, buildCsv, monthSummary, learnUse, normalizeTrip, haversineM,
+  reportTrips, buildCsv, buildTableCsv, monthSummary, learnUse, normalizeTrip, haversineM,
 } from "../www/shared/trips.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 
 test("shared copies match web/public/shared (run npm run sync:shared)", () => {
-  for (const f of ["trips.js", "firebase-config.js"]) {
+  for (const f of readdirSync(join(here, "..", "..", "web", "public", "shared")).filter((x) => x.endsWith(".js"))) {
     const a = readFileSync(join(here, "..", "www", "shared", f), "utf8");
     const b = readFileSync(join(here, "..", "..", "web", "public", "shared", f), "utf8");
     assert.equal(a, b, f);
@@ -78,6 +78,16 @@ test("CSV has the requested columns, quoting, subtotals", () => {
   assert.ok(lines.includes(',,,,,Grand total,22.76,'));
   const plain = buildCsv(reportTrips(trips, { year: 2026 }), { subtotals: false }).trim().split("\r\n");
   assert.equal(plain.length, 4);
+});
+
+test("full table CSV lists every trip, including removed ones", () => {
+  const rows = reportTrips(trips, { year: 2026, month: 2, includeRemoved: true });
+  assert.equal(rows.length, 2);
+  const lines = buildTableCsv(rows).trim().split("\r\n");
+  assert.equal(lines[0], "Vehicle,Date,Start Time,Starting Address,End Time,Ending Address,Miles,Use,Counted in Reports,Removed Reason,GPS Miles,Source,Auto Rule,Notes");
+  assert.equal(lines.length, 3);
+  assert.match(lines[1], /,7\.50,RustyRose,Yes,,/);
+  assert.match(lines[2], /,300\.00,Personal,No,Plane,/);
 });
 
 test("learnUse needs two consistent past trips on the same route (either direction)", () => {

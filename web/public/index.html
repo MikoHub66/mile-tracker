@@ -26,7 +26,13 @@
 
 <div id="app" class="app" hidden>
   <header class="top">
-    <h1>Mile Tracker</h1>
+    <div class="brand">
+      <h1>Mile Tracker</h1>
+      <div class="view-switch" role="tablist" aria-label="View">
+        <button data-view="map" class="on" role="tab">Map</button>
+        <button data-view="table" role="tab">Table</button>
+      </div>
+    </div>
     <div class="top-actions">
       <button class="btn ghost" id="btnManual">+ Manual trip</button>
       <button class="btn ghost" id="btnVehicles">Vehicles</button>
@@ -62,6 +68,60 @@
     </aside>
     <div id="map" class="map"></div>
   </div>
+
+  <section id="tableView" class="table-view" hidden>
+    <div class="tv-toolbar">
+      <label class="tv-f"><span>Year</span><select id="tvYear"></select></label>
+      <label class="tv-f"><span>Month</span><select id="tvMonth"></select></label>
+      <label class="tv-f"><span>Use</span><select id="tvUse"></select></label>
+      <label class="tv-f"><span>Vehicle</span><select id="tvVehicle"></select></label>
+      <label class="tv-f"><span>Show</span><select id="tvShow">
+        <option value="counted">Counted trips</option>
+        <option value="all">All, incl. removed</option>
+        <option value="removed">Removed only</option>
+        <option value="review">Needs review</option>
+      </select></label>
+      <label class="tv-f grow"><span>Search</span><input id="tvSearch" type="search" placeholder="Address, notes…"></label>
+      <button class="btn" id="tvExport" title="Every trip shown in the table, all columns">Export table CSV</button>
+    </div>
+
+    <div class="bulk" id="bulkBar">
+      <b id="bulkCount">0 selected</b>
+      <label class="tv-f"><span>Change</span><select id="bulkField">
+        <option value="use">Use</option>
+        <option value="vehicle">Vehicle</option>
+        <option value="status">Counted / removed</option>
+        <option value="notes">Notes</option>
+        <option value="date">Date</option>
+      </select></label>
+      <label class="tv-f" id="bulkValueWrap"><span>To</span><span id="bulkValue"></span></label>
+      <button class="btn primary" id="bulkSelected" disabled>Change selected</button>
+      <button class="btn" id="bulkAll">Change all shown</button>
+      <button class="btn danger" id="bulkDelete" disabled>Delete selected</button>
+      <button class="link" id="bulkClear" hidden>Clear selection</button>
+    </div>
+
+    <div class="tv-scroll">
+      <table class="tv" id="tvTable">
+        <thead><tr>
+          <th class="c-sel"><input type="checkbox" id="tvAll" aria-label="Select all shown"></th>
+          <th data-sort="vehicle">Vehicle</th>
+          <th data-sort="date">Date</th>
+          <th data-sort="startTs">Start</th>
+          <th data-sort="startAddress">Starting address</th>
+          <th data-sort="endTs">End</th>
+          <th data-sort="endAddress">Ending address</th>
+          <th data-sort="miles" class="num">Miles</th>
+          <th data-sort="use">Use</th>
+          <th data-sort="excluded">Counted</th>
+          <th data-sort="notes">Notes</th>
+          <th></th>
+        </tr></thead>
+        <tbody id="tvBody"></tbody>
+        <tfoot><tr><td></td><td colspan="6" id="tvFootLabel"></td><td class="num" id="tvFootMiles"></td><td colspan="4"></td></tr></tfoot>
+      </table>
+    </div>
+  </section>
 </div>
 
 <dialog id="dlg"><div id="dlgBody"></div></dialog>
