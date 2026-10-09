@@ -47,6 +47,18 @@ not used, possible future year-start/year-end odometer log).
 - Leaflet maps in bottom sheets: delayed fitBounds after the sheet closed threw `_leaflet_pos`.
   Use `afterOpen()` and `animate: false`.
 
+## Deferred: iOS app (decided 2026-10-09)
+On hold until the Android app and web platform prove themselves. The plan, if resumed:
+- Capacitor iOS platform; same www/ UI; rewrite the native plugin in Swift with the same JS
+  API (MileTracker). Detection uses significant-location-change + a geofence around the parked
+  spot to wake the app, CMMotionActivity "automotive", and standard updates while driving.
+  Car Bluetooth is only visible as the audio route while the app is awake (partial vehicle
+  matching).
+- No Mac here: build in the cloud (Codemagic or GitHub Actions macOS) and upload to TestFlight.
+- Distribution: the $99 individual Apple Developer Program with TestFlight internal testing (just
+  the user). Enterprise was ruled out: organisations only, employees only, $299. A web
+  app/PWA can't track in the background, so it stays review-only.
+
 ## Status (2026-10-09)
 - JS tests 8/8 and native unit tests 10/10 pass. Debug APK builds (`dist/MileTracker-debug.apk`).
 - Headless Edge smoke tests passed with no console errors: web demo (classify, edit, remove,
