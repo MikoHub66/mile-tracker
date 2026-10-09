@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#1f2a37">
+<title>Mile Tracker</title>
+<link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+<link rel="stylesheet" href="styles.css">
+<script src="vendor/leaflet/leaflet.js"></script>
+</head>
+<body>
+<header class="top">
+  <div class="top-row">
+    <h1>Mile Tracker</h1>
+    <button id="findCar" class="icon-btn" aria-label="Find my car" title="Find my car">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a7 7 0 0 0-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 0 0-7-7zm-3.2 9.6.7-2.1c.1-.3.4-.5.7-.5h3.6c.3 0 .6.2.7.5l.7 2.1v2.4h-.9v-.8H9.7v.8h-.9v-2.4zm1-.2h4.4l-.4-1.3h-3.6l-.4 1.3z"/></svg>
+      <span>Find my car</span>
+    </button>
+  </div>
+  <div class="top-row">
+    <button id="statusPill" class="pill"><span class="dot"></span><span id="statusText">Starting…</span></button>
+    <label class="vehicle-pick"><span class="sr">Vehicle</span><select id="vehicleSelect"></select></label>
+  </div>
+</header>
+
+<main>
+  <section id="tab-trips" class="tab">
+    <div id="summary" class="summary"></div>
+    <div class="seg" id="tripFilter" role="tablist">
+      <button data-f="review" class="on">To review</button>
+      <button data-f="all">All</button>
+      <button data-f="removed">Removed</button>
+    </div>
+    <div id="tripList"></div>
+  </section>
+  <section id="tab-settings" class="tab" hidden></section>
+</main>
+
+<nav class="bottom">
+  <button data-tab="trips" class="on">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h10v2H4z"/></svg>Trips<span id="reviewBadge" class="badge" hidden></span>
+  </button>
+  <button data-tab="settings">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.4 13a7.5 7.5 0 0 0 0-2l2-1.6-2-3.4-2.4 1a7.6 7.6 0 0 0-1.7-1L15 3.5h-4l-.4 2.5a7.6 7.6 0 0 0-1.7 1l-2.4-1-2 3.4L6.6 11a7.5 7.5 0 0 0 0 2l-2 1.6 2 3.4 2.4-1a7.6 7.6 0 0 0 1.7 1l.4 2.5h4l.4-2.5a7.6 7.6 0 0 0 1.7-1l2.4 1 2-3.4zM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z" transform="translate(-1 0)"/></svg>Settings
+  </button>
+</nav>
+
+<div id="sheet" class="sheet" hidden>
+  <div class="sheet-backdrop" data-close></div>
+  <div class="sheet-body" role="dialog" aria-modal="true"><div id="sheetContent"></div></div>
+</div>
+<div id="toast" class="toast" hidden></div>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>

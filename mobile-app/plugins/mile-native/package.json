@@ -1,0 +1,12 @@
+{
+  "name": "mile-native",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local Capacitor plugin for Mile Tracker: background trip detection service (MileTracker).",
+  "main": "index.js",
+  "capacitor": {
+    "android": {
+      "src": "android"
+    }
+  }
+}

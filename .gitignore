@@ -1,0 +1,8 @@
+node_modules/
+mobile-app/android/
+mobile-app/www/vendor/
+dist/
+.firebase/
+*.log
+mobile-app/plugins/mile-native/android/build/
+mobile-app/plugins/mile-native/android/.gradle/

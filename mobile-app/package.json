@@ -1,0 +1,27 @@
+{
+  "name": "mile-tracker-mobile",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Mile Tracker Android app (Capacitor wrapper around www/ + native trip-detection plugin)",
+  "scripts": {
+    "prepare:vendor": "node scripts/prepare-vendor.mjs",
+    "sync:shared": "node scripts/sync-shared.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "sync": "npm run sync:shared && npm run prepare:vendor && cap sync",
+    "build:debug": "cd android && gradlew.bat assembleDebug"
+  },
+  "dependencies": {
+    "@capacitor/android": "^6.1.2",
+    "@capacitor/app": "^6.0.3",
+    "@capacitor/core": "^6.1.2",
+    "firebase": "^10.13.0",
+    "leaflet": "^1.9.4",
+    "mile-native": "file:./plugins/mile-native"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^6.1.2",
+    "esbuild": "^0.24.0"
+  }
+}

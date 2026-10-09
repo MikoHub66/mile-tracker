@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mile Tracker</title>
+<meta name="description" content="Review, edit and report the drives recorded by the Mile Tracker phone app.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%231f2a37'/%3E%3Cpath fill='%23fff' d='M17.3 7.6c-.2-.4-.5-.6-.9-.6H8.6c-.4 0-.7.2-.9.6L6 12v5.2c0 .4.3.8.8.8h.6c.4 0 .8-.4.8-.8v-.6h7.6v.6c0 .4.4.8.8.8h.6c.5 0 .8-.4.8-.8V12zM8.4 14.7a1 1 0 1 1 0-2 1 1 0 0 1 0 2zm7.2 0a1 1 0 1 1 0-2 1 1 0 0 1 0 2zM7.4 11.4l1-3h7.2l1 3z'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="login" class="login" hidden>
+  <form id="loginForm" class="login-card">
+    <h1>Mile Tracker</h1>
+    <p>Sign in with the same account you use in the phone app.</p>
+    <label class="field"><span>Email</span><input name="email" type="email" autocomplete="email" required></label>
+    <label class="field"><span>Password</span><input name="pw" type="password" autocomplete="current-password" minlength="6" required></label>
+    <div class="err" id="loginErr"></div>
+    <button class="btn primary block" data-mode="in">Sign in</button>
+    <button class="btn block" data-mode="up">Create account</button>
+    <button type="button" class="link" id="resetPw">Forgot password?</button>
+  </form>
+</div>
+
+<div id="app" class="app" hidden>
+  <header class="top">
+    <h1>Mile Tracker</h1>
+    <div class="top-actions">
+      <button class="btn ghost" id="btnManual">+ Manual trip</button>
+      <button class="btn ghost" id="btnVehicles">Vehicles</button>
+      <button class="btn light" id="btnReport">Report / CSV</button>
+      <button class="btn ghost small" id="btnSignOut" title="Sign out">Sign out</button>
+    </div>
+  </header>
+  <div id="demoBar" class="demo-bar" hidden>Demo data. Firebase isn't connected yet, so edits stay in this browser. <button class="link" id="resetDemo">Reset demo</button></div>
+  <div class="layout">
+    <aside class="side">
+      <div class="cal">
+        <div class="cal-head">
+          <button class="icon" id="prevMonth" aria-label="Previous month">‹</button>
+          <b id="monthLabel"></b>
+          <button class="icon" id="nextMonth" aria-label="Next month">›</button>
+        </div>
+        <div class="cal-grid" id="calGrid"></div>
+        <div class="month-stats" id="monthStats"></div>
+      </div>
+      <div class="day-head">
+        <div><b id="dayLabel"></b><span id="dayMiles"></span></div>
+        <div class="day-nav">
+          <button class="icon" id="prevDay" aria-label="Previous day">‹</button>
+          <input type="date" id="dayPick" aria-label="Pick a day">
+          <button class="icon" id="nextDay" aria-label="Next day">›</button>
+        </div>
+      </div>
+      <div class="filters">
+        <label><input type="checkbox" id="wholeMonth"> Whole month on map</label>
+        <label><input type="checkbox" id="showRemoved"> Show removed</label>
+      </div>
+      <div id="dayList" class="day-list"></div>
+    </aside>
+    <div id="map" class="map"></div>
+  </div>
+</div>
+
+<dialog id="dlg"><div id="dlgBody"></div></dialog>
+<div id="toast" class="toast" hidden></div>
+<script type="module" src="app.js"></script>
+</body>
+</html>
