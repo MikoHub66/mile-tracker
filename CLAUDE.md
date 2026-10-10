@@ -60,10 +60,23 @@ On hold until the Android app and web platform prove themselves. The plan, if re
   app/PWA can't track in the background, so it stays review-only.
 
 ## Status (2026-10-09)
-- JS tests 8/8 and native unit tests 10/10 pass. Debug APK builds (`dist/MileTracker-debug.apk`).
+- JS tests 9/9 and native unit tests 10/10 pass. Web Table view (inline + bulk edit, full-table
+  CSV) and Esri satellite basemaps were added 2026-10-09. Debug APK builds (`dist/MileTracker-debug.apk`).
 - Headless Edge smoke tests passed with no console errors: web demo (classify, edit, remove,
   manual trip, whole month, report and CSV, phone width) and phone UI with the mock tracker
   (vehicle + Bluetooth link, automation config reaching native, places, classify/remove, trip
   map, Find my car).
-- Not yet: running on a real phone (background survival, Bluetooth, geocoder); Firebase project
-  (placeholder config); GitHub repo and Pages.
+- Not yet: running on a real phone (background survival, Bluetooth, geocoder).
+
+## Live setup (2026-10-10)
+- Firebase project `mile-tracker-mtm` (created with the user's Firebase CLI login). Firestore
+  (default) is in nam5; rules deployed from web/firestore.rules; email/password auth enabled via
+  `firebase deploy --only auth` (the "auth" block in web/firebase.json). Web app id
+  1:777163758788:web:778d30f94567f616f97d91. Authorized domains were NOT changed, because
+  email/password sign-in doesn't need them (only popup/redirect/email-link flows do).
+- GitHub repo MikoHub66/mile-tracker (public, like PhotoScout). Pages runs in Actions mode and
+  deploys web/public on pushes that touch it: https://mikohub66.github.io/mile-tracker/
+- Verified with throwaway accounts (deleted afterwards): sign-up, refresh-token exchange, REST
+  create (200) and duplicate (409), rules deny other users and anonymous reads, and the live site
+  sign-in, manual trip and table.
+- Demo data is still available on the live site with ?demo.

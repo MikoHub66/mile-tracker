@@ -48,7 +48,12 @@ use plus per-vehicle totals. The CSV columns are
 `Vehicle, Date, Start Time, Starting Address, End Time, Ending Address, Miles, Use`.
 Monthly subtotal rows and totals are optional. Removed trips are never included.
 
-## Setup
+## Live
+
+- Web map: https://mikohub66.github.io/mile-tracker/ (add `?demo` for sample data)
+- Firebase project: `mile-tracker-mtm`
+
+## Setup (already done for this project; kept for reference)
 
 ### 1. Firebase (once)
 1. Create a Firebase project (console.firebase.google.com). Add a **Web app**, enable
