@@ -1,6 +1,7 @@
 import { api, demo, geocode, route } from "./store.js";
 import { createTable, download } from "./table.js";
 import { addBasemaps } from "./shared/basemaps.js";
+import { LEGAL_SECTIONS, DISCLAIMER_SHORT, LEGAL_UPDATED } from "./shared/legal.js";
 import {
   USES, EXCLUDE_REASONS, useById, excludeLabel, fmtTime, shortAddress, decodePolyline, encodePolyline,
   localParts, browserTz, applyWallClock, round2, MONTHS, reportTrips, monthSummary, buildCsv, buildTableCsv, needsReview, learnUse,
@@ -622,3 +623,14 @@ $("#resetPw").onclick = async () => {
 };
 $("#btnSignOut").onclick = () => (demo ? toast("Demo mode: nothing to sign out of") : api.signOut());
 $("#resetDemo").onclick = () => api.resetDemo();
+
+function legalDialog() {
+  const body = LEGAL_SECTIONS.map(([h, b]) => `<h3 style="font-size:15px;margin:16px 0 4px">${esc(h)}</h3><p style="margin:0;color:var(--muted)">${esc(b)}</p>`).join("");
+  openDialog(
+    `<h2>Legal &amp; privacy</h2><p class="hint" style="margin-top:0">Last updated ${esc(LEGAL_UPDATED)}</p>${body}
+     <div class="dlg-actions"><button class="btn primary" data-close>Close</button></div>`,
+  );
+}
+$("#btnLegal").onclick = legalDialog;
+$("#loginLegal").textContent = DISCLAIMER_SHORT;
+$("#loginLegal").onclick = legalDialog;

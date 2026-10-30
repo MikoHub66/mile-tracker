@@ -37,6 +37,8 @@ function mockTracker() {
     btVehicle: "",
     permissions: perms,
     highAccuracyAlways: !!s.config.highAccuracyAlways,
+    batterySaver: s.config.batterySaver !== false && !s.config.highAccuracyAlways,
+    batterySaverSetting: s.config.batterySaver !== false,
   });
   return {
     mock: true,

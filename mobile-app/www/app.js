@@ -3,6 +3,7 @@ import { tracker, isNative } from "./native.js";
 import { configured } from "./firebase.js";
 import { WEB_MAP_URL } from "./shared/firebase-config.js";
 import { addBasemaps } from "./shared/basemaps.js";
+import { LEGAL_SECTIONS, DISCLAIMER_SHORT, LEGAL_UPDATED } from "./shared/legal.js";
 import {
   USES, EXCLUDE_REASONS, useById, excludeLabel, fmtTime, shortAddress, decodePolyline,
   haversineM, METERS_PER_MILE, round2, localParts, browserTz, needsReview,
@@ -401,7 +402,9 @@ function renderSettings() {
     <div class="card">
       <div class="row"><div class="label"><b>Automatic tracking</b><small>${status?.enabled ? "Drives are recorded in the background" : "Off — no drives are recorded"}</small></div>
         <label class="switch"><input type="checkbox" id="trackToggle" ${status?.enabled ? "checked" : ""}><span></span></label></div>
-      <div class="row"><div class="label">Always use GPS<small>Catches every drive, uses more battery</small></div>
+      <div class="row"><div class="label">Battery saver<small>Checks for drives less often while parked. Leave on unless you notice missed trips.</small></div>
+        <label class="switch"><input type="checkbox" id="battSaver" ${status?.batterySaverSetting !== false ? "checked" : ""} ${status?.highAccuracyAlways ? "disabled" : ""}><span></span></label></div>
+      <div class="row"><div class="label">Always use GPS<small>Catches every drive, uses the most battery (overrides battery saver)</small></div>
         <label class="switch"><input type="checkbox" id="hiAcc" ${status?.highAccuracyAlways ? "checked" : ""}><span></span></label></div>
     </div>
     <div class="card"><h2>Permissions</h2>${permRows}</div>
@@ -427,8 +430,11 @@ function renderSettings() {
       <button class="btn block" id="addPlace">+ Add a place at my location</button>
     </div>
     <div class="card"><h2>Account</h2>${account}</div>
+    <div class="card"><h2>About</h2>
+      <div class="row"><div class="label">Legal &amp; privacy<small>Disclaimer, how your data is handled</small></div><button class="btn" id="showLegal">View</button></div>
+    </div>
     ${tracker.mock ? `<div class="card"><h2>Browser preview</h2><button class="btn block" id="simTrip">Simulate a finished drive</button></div>` : ""}
-    <p class="menu hint" style="text-align:center">Mile Tracker ${isNative ? "" : "(browser preview)"} · trips end after 5 minutes stopped</p>`;
+    <p class="menu hint" style="text-align:center">Mile Tracker ${isNative ? "" : "(browser preview)"} · trips end after 5 minutes stopped<br>${esc(DISCLAIMER_SHORT)}</p>`;
 }
 
 $("#tab-settings").addEventListener("click", async (e) => {
@@ -449,6 +455,7 @@ $("#tab-settings").addEventListener("click", async (e) => {
     else if (t.id === "signIn") signInSheet();
     else if (t.id === "signOut") { if (confirm("Sign out? Tracking continues; trips upload after you sign back in.")) await store.signOut(); }
     else if (t.id === "syncNow") { await tracker.syncNow(); toast("Uploading…"); setTimeout(refreshStatus, 3000); }
+    else if (t.id === "showLegal") legalSheet();
     else if (t.id === "simTrip") { tracker.simulateTrip(); toast("Simulated a drive"); }
   } catch (err) {
     toast(err.message || String(err));
@@ -463,7 +470,11 @@ $("#tab-settings").addEventListener("change", async (e) => {
       if (t.checked) await startTracking();
       else await tracker.stop();
       await refreshStatus();
-    } else if (t.id === "hiAcc") await tracker.setConfig({ highAccuracyAlways: t.checked });
+    } else if (t.id === "hiAcc") {
+      await tracker.setConfig({ highAccuracyAlways: t.checked });
+      await refreshStatus();
+      renderSettings();
+    } else if (t.id === "battSaver") await tracker.setConfig({ batterySaver: t.checked });
     else if (t.id === "reqBt") await store.saveAutomation({ requireBluetooth: t.checked });
     else if (t.id === "learn") await store.saveAutomation({ learn: t.checked });
     else if (t.id === "whOn") await store.saveAutomation({ workHours: { ...a.workHours, on: t.checked } });
@@ -478,7 +489,43 @@ $("#tab-settings").addEventListener("change", async (e) => {
   }
 });
 
+function legalSheet() {
+  const body = LEGAL_SECTIONS.map(([h, b]) => `<h4 style="margin:14px 0 4px">${esc(h)}</h4><p style="margin:0;color:var(--muted)">${esc(b)}</p>`).join("");
+  openSheet(
+    `<h3>Legal &amp; privacy</h3><p class="menu hint" style="margin-top:0">Last updated ${esc(LEGAL_UPDATED)}</p>${body}
+     <button class="btn block" data-close style="margin-top:16px">Close</button>`,
+  );
+}
+
+/** First run: show the disclaimer once and require acceptance before tracking starts. */
+async function acceptDisclaimer() {
+  try {
+    if (localStorage.getItem("mt.legalAccepted")) return true;
+  } catch {}
+  return new Promise((resolve) => {
+    const body = LEGAL_SECTIONS.map(([h, b]) => `<h4 style="margin:14px 0 4px">${esc(h)}</h4><p style="margin:0;color:var(--muted)">${esc(b)}</p>`).join("");
+    openSheet(
+      `<h3>Before you start</h3>
+       <p>Mile Tracker records your location in the background to detect your drives, and the trips and distances it produces are estimates you need to review. Please read and accept this to continue.</p>
+       <div style="max-height:40vh;overflow:auto;border:1px solid var(--line);border-radius:10px;padding:0 12px;margin:8px 0">${body}</div>
+       <button class="btn primary block" id="legalAgree">I understand and agree</button>
+       <button class="btn block" data-close id="legalDecline">Not now</button>`,
+      (el) => {
+        $("#legalAgree", el).onclick = () => {
+          try {
+            localStorage.setItem("mt.legalAccepted", new Date().toISOString());
+          } catch {}
+          closeSheet();
+          resolve(true);
+        };
+        $("#legalDecline", el).onclick = () => resolve(false);
+      },
+    );
+  });
+}
+
 async function startTracking() {
+  if (!(await acceptDisclaimer())) throw new Error("You must accept the disclaimer to start tracking");
   const loc = await tracker.requestPermission({ kind: "location" });
   if (!loc.granted) throw new Error("Location permission is needed to record drives");
   await tracker.requestPermission({ kind: "notifications" }).catch(() => {});
@@ -651,7 +698,7 @@ renderAll();
 // First run: turn tracking on (the whole point is not having to remember).
 if (status && !status.enabled && !localStorage.getItem("mt.askedStart")) {
   localStorage.setItem("mt.askedStart", "1");
-  startTracking().then(refreshStatus).catch((e) => toast(e.message));
+  startTracking().then(refreshStatus).catch(() => {}); // declining the disclaimer is a quiet no-op
 }
 setInterval(() => document.visibilityState === "visible" && refreshStatus(), 10_000);
 document.addEventListener("visibilitychange", () => {

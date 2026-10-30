@@ -182,3 +182,6 @@ table.tv { border-collapse: separate; border-spacing: 0; width: 100%; min-width:
   .table-view { padding: 10px; }
   .brand { gap: 8px; }
 }
+
+.login-legal { font-size: 11px; color: var(--muted); margin: 16px 0 0; line-height: 1.5; cursor: pointer; }
+.login-legal:hover { color: var(--ink); }

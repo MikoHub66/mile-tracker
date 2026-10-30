@@ -33,7 +33,7 @@ import org.json.JSONObject;
  *   requestBatteryExemption()         opens the "ignore battery optimisation" prompt
  *   openAppSettings()
  *   start() / stop()                  turn background tracking on/off (survives reboots)
- *   setConfig({vehicleId, vehicleName, highAccuracyAlways, automation})
+ *   setConfig({vehicleId, vehicleName, highAccuracyAlways, batterySaver, automation})
  *       automation: {vehicles:[{id,name,btAddress,defaultUse}], places:[{name,lat,lng,radius,use}],
  *                    workHours:{on,days:[0-6],start,end,use}, requireBluetooth}
  *   setCloud({apiKey, projectId, uid, refreshToken}) / clearCloud()
@@ -112,6 +112,7 @@ public class TripPlugin extends Plugin implements TrackerHub.Events {
             JSObject s = JSObject.fromJSONObject(hub.status());
             s.put("permissions", permissions());
             s.put("highAccuracyAlways", hub.highAccuracyAlways());
+            s.put("batterySaverSetting", hub.prefs().getBoolean("batterySaver", true));
             call.resolve(s);
         } catch (Exception e) {
             call.reject(e.getMessage());
@@ -190,8 +191,9 @@ public class TripPlugin extends Plugin implements TrackerHub.Events {
         if (call.hasOption("vehicleName")) e.putString("vehicleName", call.getString("vehicleName", ""));
         if (call.hasOption("automation")) e.putString("automation", call.getObject("automation", new JSObject()).toString());
         if (call.hasOption("highAccuracyAlways")) e.putBoolean("highAccuracyAlways", Boolean.TRUE.equals(call.getBoolean("highAccuracyAlways")));
+        if (call.hasOption("batterySaver")) e.putBoolean("batterySaver", Boolean.TRUE.equals(call.getBoolean("batterySaver")));
         e.apply();
-        if (hub.trackingEnabled() && call.hasOption("highAccuracyAlways")) {
+        if (hub.trackingEnabled() && (call.hasOption("highAccuracyAlways") || call.hasOption("batterySaver"))) {
             try {
                 TripService.start(getContext());
             } catch (Exception ignored) {

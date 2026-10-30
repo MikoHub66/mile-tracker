@@ -40,6 +40,51 @@ CSV reports.
 
 Anything classified automatically shows an "auto" tag so you can review it.
 
+## Battery
+
+Background location is the main battery cost, so the parked tier runs as lightly
+as possible:
+
+| State | Battery saver on (default) | Battery saver off | Always use GPS |
+|---|---|---|---|
+| Parked | balanced fix every ~3 min, batched | balanced every ~45 s | — |
+| Driving / probing | GPS every ~8 s | GPS every ~8 s | GPS every ~5 s |
+
+Car Bluetooth connecting and "entered a vehicle" detection switch to GPS
+instantly, so the gentle parked tier does not make trips start late. Toggle
+**Battery saver** and **Always use GPS** in the app's Settings. For reliable
+background tracking the phone still needs location "all the time" and the app's
+battery setting set to **Unrestricted**.
+
+## Legal
+
+A plain-language disclaimer and privacy summary lives in
+[`web/public/shared/legal.js`](web/public/shared/legal.js) (one source) and is
+shown in the app (Settings → Legal & privacy, and a one-time acceptance before
+tracking starts) and on the web map (the **Legal** button and the login screen).
+[`DISCLAIMER.md`](DISCLAIMER.md) is generated from the same text. It is general
+protective language, not legal advice — have a lawyer review it before relying on
+it in a dispute.
+
+## Code privacy / "hiding" the key and logic
+
+This matters less than it sounds, and it's worth being precise:
+
+- **The Firebase web key is public by design.** It is an identifier, not a
+  password. Your data is protected by the server-side Firestore rules
+  ([`web/firestore.rules`](web/firestore.rules)) — each signed-in person can read
+  and write only their own `users/{uid}/…`. Even with the key, nobody can read
+  your trips. The backend rules were verified with throwaway accounts.
+- **The APK ships minified JS.** `scripts/pack-assets.mjs` bundles the app's
+  JavaScript into one minified `app.min.js` and removes the readable sources from
+  the packaged app, so decompiling the APK yields obfuscated code, not clean
+  source. This is obfuscation, not encryption: a determined person can still
+  unpack it. Nothing that must stay secret is placed in client code.
+- **The web source is public** because the GitHub repo is public (free GitHub
+  Pages requires a public repo). Minifying the served site would not change that.
+  To keep the web source private you'd need a paid plan (private repo + Pages) or
+  a different host.
+
 ## Report (web → Report / CSV)
 
 Pick a year, a month or the whole year by month, a use filter (All / Business /

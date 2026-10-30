@@ -71,6 +71,11 @@ public class TrackerHub {
         return prefs().getBoolean("highAccuracyAlways", false);
     }
 
+    /** Battery saver (default on): gentler polling while parked, lower GPS rate while driving. */
+    public boolean batterySaver() {
+        return prefs().getBoolean("batterySaver", true) && !highAccuracyAlways();
+    }
+
     // ---- fed by TripService (on its looper thread) ----
 
     public synchronized boolean wantsHighAccuracy() {
@@ -314,6 +319,7 @@ public class TrackerHub {
             s.put("tripMiles", Math.round(currentMiles() * 100) / 100.0);
             s.put("tripStartTs", detector.currentStartTs());
             s.put("highAccuracy", wantsHighAccuracy());
+            s.put("batterySaver", batterySaver());
             s.put("lastFixTs", lastFixTs);
             s.put("lastAccuracy", lastAcc);
             s.put("pendingUploads", store.pendingCount());

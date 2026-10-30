@@ -38,9 +38,13 @@ import java.util.Locale;
 
 /**
  * Always-on foreground service (type "location") that feeds the TripDetector.
- * Power policy: balanced (Wi-Fi/cell) fixes every 30 s while parked, GPS every
- * 5 s while driving or while probing a possible departure. Activity Recognition
- * ("entered a vehicle") also starts a probe when that permission is granted.
+ *
+ * Power policy (the big battery lever is the parked tier, which runs 24/7):
+ *   parked,  battery saver on  -> balanced, every 3 min, batched so the modem sleeps between
+ *   parked,  battery saver off -> balanced, every 45 s
+ *   driving / probing          -> GPS, every 8 s (5 s if "always use GPS" is on)
+ * Car Bluetooth and Activity Recognition ("entered a vehicle") still switch to GPS instantly,
+ * so stretching the parked tier does not make trips start late.
  */
 public class TripService extends Service {
     public static final String ACTION_BOOST = "com.miletracker.BOOST";
@@ -50,7 +54,8 @@ public class TripService extends Service {
     private FusedLocationProviderClient fused;
     private HandlerThread thread;
     private Handler handler;
-    private Boolean highMode;
+    private String reqKey;
+    private String lastNotifText;
     private TrackerHub hub;
 
     public static void start(Context ctx) {
@@ -80,7 +85,9 @@ public class TripService extends Service {
             hub.onTick(System.currentTimeMillis());
             applyMode();
             updateNotification();
-            handler.postDelayed(this, 60_000);
+            // While driving, tick every minute so a trip can still end if fixes stop arriving.
+            // While parked there is nothing to end, so tick rarely to let the CPU sleep.
+            handler.postDelayed(this, hub.isDriving() ? 60_000 : 150_000);
         }
     };
 
@@ -102,7 +109,7 @@ public class TripService extends Service {
         }
         if (intent != null && ACTION_BOOST.equals(intent.getAction())) hub.boost();
         handler.post(() -> {
-            highMode = null; // force a (re)request
+            reqKey = null; // force a (re)request
             applyMode();
             handler.removeCallbacks(ticker);
             handler.postDelayed(ticker, 60_000);
@@ -132,13 +139,10 @@ public class TripService extends Service {
         Intent launch = getPackageManager().getLaunchIntentForPackage(getPackageName());
         PendingIntent content = launch == null ? null : PendingIntent.getActivity(
                 this, 0, launch, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
-        String text = hub.isDriving()
-                ? String.format(Locale.US, "Recording a drive · %.1f mi", hub.currentMiles())
-                : "Waiting for your next drive";
         return new NotificationCompat.Builder(this, CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_mt_notify)
                 .setContentTitle("Mile Tracker")
-                .setContentText(text)
+                .setContentText(notificationText())
                 .setOngoing(true)
                 .setOnlyAlertOnce(true)
                 .setPriority(NotificationCompat.PRIORITY_MIN)
@@ -146,7 +150,15 @@ public class TripService extends Service {
                 .build();
     }
 
+    private String notificationText() {
+        if (hub.isDriving()) return String.format(Locale.US, "Recording a drive · %.1f mi", hub.currentMiles());
+        return hub.batterySaver() ? "Watching for your next drive (battery saver)" : "Watching for your next drive";
+    }
+
     private void updateNotification() {
+        String text = notificationText();
+        if (text.equals(lastNotifText)) return; // avoid re-posting the notice on every fix
+        lastNotifText = text;
         NotificationManager nm = getSystemService(NotificationManager.class);
         try {
             if (nm != null) nm.notify(NOTIFICATION_ID, buildNotification());
@@ -156,16 +168,34 @@ public class TripService extends Service {
 
     @SuppressLint("MissingPermission")
     private void applyMode() {
-        boolean high = hub.wantsHighAccuracy();
-        if (highMode != null && highMode == high) return;
-        highMode = high;
-        LocationRequest req = high
-                ? new LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 5_000)
-                    .setMinUpdateIntervalMillis(2_000)
-                    .build()
-                : new LocationRequest.Builder(Priority.PRIORITY_BALANCED_POWER_ACCURACY, 30_000)
-                    .setMinUpdateIntervalMillis(15_000)
+        final LocationRequest req;
+        final String key;
+        if (hub.wantsHighAccuracy()) {
+            // Driving or probing a possible departure: GPS. Slightly lower rate unless the user
+            // asked for "always use GPS"; mileage stays accurate because the path is distance-summed.
+            long interval = hub.highAccuracyAlways() ? 5_000 : 8_000;
+            key = "gps:" + interval;
+            req = new LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, interval)
+                    .setMinUpdateIntervalMillis(4_000)
                     .build();
+        } else if (hub.batterySaver()) {
+            // Parked: the 24/7 tier. Poll rarely and allow the system to batch fixes so the GPS/
+            // modem can sleep in between — this is the main battery win.
+            key = "park-saver";
+            req = new LocationRequest.Builder(Priority.PRIORITY_BALANCED_POWER_ACCURACY, 180_000)
+                    .setMinUpdateIntervalMillis(120_000)
+                    .setMaxUpdateDelayMillis(300_000)
+                    .setWaitForAccurateLocation(false)
+                    .build();
+        } else {
+            key = "park";
+            req = new LocationRequest.Builder(Priority.PRIORITY_BALANCED_POWER_ACCURACY, 45_000)
+                    .setMinUpdateIntervalMillis(30_000)
+                    .setMaxUpdateDelayMillis(60_000)
+                    .build();
+        }
+        if (key.equals(reqKey)) return;
+        reqKey = key;
         try {
             fused.removeLocationUpdates(callback);
             fused.requestLocationUpdates(req, callback, thread.getLooper());

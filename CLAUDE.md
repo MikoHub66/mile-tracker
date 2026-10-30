@@ -59,6 +59,25 @@ On hold until the Android app and web platform prove themselves. The plan, if re
   the user). Enterprise was ruled out: organisations only, employees only, $299. A web
   app/PWA can't track in the background, so it stays review-only.
 
+## Battery, legal, obfuscation (2026-10-29)
+User reported battery drain and asked for legal protection + hiding the key/logic.
+- Battery: the 24/7 parked location tier was the drain. New tiered policy in TripService.applyMode
+  keyed by `reqKey`: parked+saver -> BALANCED 180s/min120s/maxDelay300s (batched); parked -> 45s;
+  driving/probe -> HIGH_ACCURACY 8s (5s if highAccuracyAlways). Ticker is 60s driving / 150s parked.
+  Notification only re-posts when its text changes. New pref `batterySaver` (default true, forced
+  off when highAccuracyAlways). Settings toggle `#battSaver`; status exposes batterySaver +
+  batterySaverSetting. Bluetooth/activity boosts still force GPS instantly, so detection unaffected.
+- Legal: single source web/public/shared/legal.js (synced to app). App shows Settings -> Legal &
+  privacy and a one-time acceptance sheet gating first-run tracking (mt.legalAccepted). Web shows a
+  Legal button + login-screen line. DISCLAIMER.md is generated from the same sections.
+- Obfuscation: scripts/pack-assets.mjs runs in build-apk.ps1 AFTER `cap sync`, bundling the APK's
+  assets/public/app.js into minified app.min.js and deleting the first-party sources (keeps vendor/
+  + leaflet; dynamic import("./vendor/firebase.js") preserved via an esbuild external plugin). www/
+  source is untouched so browser preview/dev still works. R8/Java obfuscation was NOT enabled
+  (needs a signed release + device testing; risk > value). Told the user: Firebase web key is
+  public by design, data safety is the Firestore rules, and the web source stays public because the
+  GitHub repo is public (free Pages needs public). Private web source would need a paid plan.
+
 ## Status (2026-10-09)
 - JS tests 9/9 and native unit tests 10/10 pass. Web Table view (inline + bulk edit, full-table
   CSV) and Esri satellite basemaps were added 2026-10-09. Debug APK builds (`dist/MileTracker-debug.apk`).
