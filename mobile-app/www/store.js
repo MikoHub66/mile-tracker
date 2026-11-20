@@ -98,6 +98,7 @@ export const store = {
       return;
     }
     this.pushCloud(u);
+    this.migrateLocal(u);
     const since = new Date(Date.now() - HISTORY_DAYS * 864e5).toISOString().slice(0, 10);
     const base = ["users", u.uid];
     this.unsub.push(
@@ -117,6 +118,49 @@ export const store = {
         this.emit();
       }),
     );
+  },
+
+  /**
+   * First sign-in on a phone that ran in "this phone only" mode: copy its vehicles (with car
+   * Bluetooth links) and places/automation from localStorage into the account, so the setup keeps
+   * working in cloud mode. Additive only: never overwrites or deletes anything in the account.
+   * Trips need no copying; the native uploader sends every trip not yet uploaded.
+   */
+  async migrateLocal(u) {
+    const key = `mt.migrated.${u.uid}`;
+    if (LS.get(key, false)) return;
+    const localV = LS.get("mt.vehicles", []);
+    const localA = LS.get("mt.automation", null);
+    try {
+      const base = ["users", u.uid];
+      if (localV.length) {
+        const snap = await fb.getDocs(fb.collection(db, ...base, "vehicles"));
+        const cloud = snap.docs.map((d) => ({ ...d.data(), id: d.id }));
+        for (const v of localV) {
+          const same = cloud.find((c) => c.id === v.id || (c.name || "").trim().toLowerCase() === (v.name || "").trim().toLowerCase());
+          if (!same) {
+            const { id, ...data } = v;
+            await fb.setDoc(fb.doc(db, ...base, "vehicles", id), data);
+          } else if (!same.btAddress && v.btAddress) {
+            await fb.updateDoc(fb.doc(db, ...base, "vehicles", same.id), { btAddress: v.btAddress, btName: v.btName || "" });
+          }
+        }
+      }
+      if (localA) {
+        const ref = fb.doc(db, ...base, "settings", "automation");
+        const cur = await fb.getDoc(ref);
+        if (!cur.exists()) await fb.setDoc(ref, { ...DEFAULT_AUTOMATION, ...localA });
+        else {
+          const c = cur.data() || {};
+          const have = new Set((c.places || []).map((p) => (p.name || "").trim().toLowerCase()));
+          const extra = (localA.places || []).filter((p) => !have.has((p.name || "").trim().toLowerCase()));
+          if (extra.length) await fb.updateDoc(ref, { places: [...(c.places || []), ...extra] });
+        }
+      }
+      LS.set(key, true);
+    } catch (e) {
+      console.warn("Copying this phone's setup to the account failed; will retry next sign-in", e);
+    }
   },
 
   /** Classifies unreviewed trips that match a route the user always classifies the same way. */
