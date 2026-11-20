@@ -87,6 +87,42 @@ User reported battery drain and asked for legal protection + hiding the key/logi
   map, Find my car).
 - Not yet: running on a real phone (background survival, Bluetooth, geocoder).
 
+## MileIQ import (2026-11-19)
+User asked to import MileIQ CSV exports to keep their history. No sample export was available,
+so the parser is header-driven and tolerant: web/public/shared/mileiq.js (pure, tested in
+tests/mileiq.test.mjs) finds the header row in the first 60 lines (needs a date + miles column),
+maps columns by alias, parses US M/D/Y, ISO and month-name dates with 12/24 h times, and skips
+totals rows. web/public/import.js is the dialog (category -> use, purpose override, vehicle map,
+time zone, column override, preview). Trips get source "mileiq", id "mileiq-<fnv hash>" (stable,
+so re-imports are no-ops), gpsMiles null, no path. Dups vs existing: same id, or same date, start
+within 15 min and miles within max(0.5, 10%). api.importTrips batch-sets 400 per commit. Year
+pickers in Report and Table now go back 8 years. If the user's real export doesn't parse, fix the
+alias list in FIELDS or use the "Columns found" override.
+- User's real export (2025 + 2026 YTD) is the MileIQ "Drives Report": rates line, SUMMARY block of
+  spreadsheet formulas, then DETAILED LOG header START_DATE*,END_DATE*,CATEGORY*,START*,STOP*,RATE,
+  MILES*,MILES_VALUE,PARKING,TOLLS,TOTAL,VEHICLE,PURPOSE,NOTES; dates "MM/DD/YYYY HH:MM" (24 h).
+  Vehicles "Vincent Vango", "Green Machine"; purposes Personal, Business, GPRS, GeNiuSS, Customer Visit.
+- Two phones share that MileIQ account, so many drives appear twice (same route, minutes apart),
+  and sometimes two people drive at once in different states. findFileDuplicates marks the later of
+  a pair (start within 15 min, miles within max(0.5,10%), same start or end name/ZIP) as excluded
+  reason "duplicate" (new EXCLUDE_REASONS entry), on by default, restorable. Never commit the real
+  CSVs (public repo); tests use made-up addresses.
+
+## Driving GPS pacing (2026-11-19, APK 1.1 / versionCode 2)
+User's wife reported the phone getting hot while driving; user suggested logging only at turns and
+every 250 ft. Explained that stored points don't cost battery, the GPS radio does, and 250 ft is
+MORE frequent than the old 8 s at highway speed. Implemented instead:
+- PacePolicy (pure, PacePolicyTest): CITY 8 s; CRUISE 20 s after two fixes >= 45 mph with heading
+  within 20 deg; leaves cruise under 35 mph, on a >30 deg heading swing, or unknown speed.
+- TripService.applyMode: "gps-always" (5 s, user choice) > driving ("drive:<interval>",
+  setMaxUpdateDelayMillis 60 s batching) > probing ("probe", 8 s unbatched) > parked tiers.
+  NOTE "Always use GPS" keeps GPS on 24/7 even parked; first thing to check for heat complaints.
+- Deferred option 3: gyro/compass-triggered fixes (turn detection by sensors).
+- versionCode/versionName live in the generated, gitignored mobile-app/android/app/build.gradle
+  (now 2 / "1.1"); bump again there before each APK the user installs over the old one.
+  The APK is signed by ~/.android/debug.keystore; same key = in-place upgrade keeps trips.json.
+  dist/MileTracker-1.0-backup.apk is the previous build.
+
 ## Live setup (2026-10-10)
 - Firebase project `mile-tracker-mtm` (created with the user's Firebase CLI login). Firestore
   (default) is in nam5; rules deployed from web/firestore.rules; email/password auth enabled via

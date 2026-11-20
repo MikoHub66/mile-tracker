@@ -93,6 +93,17 @@ use plus per-vehicle totals. The CSV columns are
 `Vehicle, Date, Start Time, Starting Address, End Time, Ending Address, Miles, Use`.
 Monthly subtotal rows and totals are optional. Removed trips are never included.
 
+## Import MileIQ history (web → Import MileIQ)
+
+Export your drives from MileIQ as CSV and choose the file. Columns are matched by
+header name (classic `START_DATE*,…,MILES*,PURPOSE*` exports and newer ones with a
+summary preamble both work). Before anything is saved you can map each MileIQ
+category, and optionally each purpose, to Personal / RustyRose / GPRS, map vehicles,
+pick the time zone, and check a preview. Purpose, category, parking and tolls go into
+Notes. Re-importing the same file does nothing (stable ids), and drives the phone
+also recorded are skipped. Imported trips are tagged **MileIQ**; they have addresses
+but no GPS line on the map.
+
 ## Live
 
 - Web map: https://mikohub66.github.io/mile-tracker/ (add `?demo` for sample data)

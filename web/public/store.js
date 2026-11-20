@@ -204,6 +204,27 @@ export const api = {
     await fbStore.setDoc(fbStore.doc(this.col("trips"), id), data);
   },
 
+  /** Bulk create (imports). Trips keep their own ids. onProgress(done, total). */
+  async importTrips(trips, onProgress) {
+    const now = Date.now();
+    const docs = trips.map((t) => normalizeTrip({ ...t, createdAt: now, updatedAt: now }));
+    if (demo) {
+      const ids = new Set(docs.map((d) => d.id));
+      demoState.trips = [...demoState.trips.filter((t) => !ids.has(t.id)), ...docs];
+      onProgress?.(docs.length, docs.length);
+      return fireDemo();
+    }
+    for (let i = 0; i < docs.length; i += 400) {
+      const batch = fbStore.writeBatch(db);
+      for (const d of docs.slice(i, i + 400)) {
+        const { id, ...rest } = d;
+        batch.set(fbStore.doc(this.col("trips"), id), rest);
+      }
+      await batch.commit();
+      onProgress?.(Math.min(i + 400, docs.length), docs.length);
+    }
+  },
+
   async deleteTrip(id) {
     if (demo) {
       demoState.trips = demoState.trips.filter((t) => t.id !== id);

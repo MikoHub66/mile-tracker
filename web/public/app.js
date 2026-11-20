@@ -1,5 +1,6 @@
 import { api, demo, geocode, route } from "./store.js";
 import { createTable, download } from "./table.js";
+import { importDialog } from "./import.js";
 import { addBasemaps } from "./shared/basemaps.js";
 import { LEGAL_SECTIONS, DISCLAIMER_SHORT, LEGAL_UPDATED } from "./shared/legal.js";
 import {
@@ -164,6 +165,7 @@ function tripCard(t) {
   const tags = [
     t.vehicle && `<span>${esc(t.vehicle)}</span>`,
     t.source === "manual" && `<span class="tag">manual</span>`,
+    t.source === "mileiq" && `<span class="tag" title="Imported from MileIQ">MileIQ</span>`,
     t.autoRule && `<span class="tag" title="Classified automatically">auto</span>`,
     t.excluded && `<span class="tag">Removed: ${esc(excludeLabel(t.excludedReason))}</span>`,
     t.miles !== t.gpsMiles && t.gpsMiles != null && t.source !== "manual" && `<span class="tag" title="GPS measured ${Number(t.gpsMiles).toFixed(2)} mi">edited</span>`,
@@ -446,11 +448,21 @@ function vehicleForm(v = null) {
 }
 $("#btnVehicles").onclick = vehiclesDialog;
 
+$("#btnImport").onclick = () =>
+  importDialog({
+    api, openDialog, closeDialog, toast, vehicles: state.vehicles, automation: state.automation,
+    onDone: (firstDate) => {
+      state.wholeMonth = false;
+      $("#wholeMonth").checked = false;
+      setDay(firstDate);
+    },
+  });
+
 // ---------------- report ----------------
 
 async function reportDialog() {
   const thisYear = new Date().getFullYear();
-  const years = [thisYear, thisYear - 1, thisYear - 2];
+  const years = [0, 1, 2, 3, 4, 5, 6, 7].map((n) => thisYear - n);
   const useSets = {
     all: { label: "All uses", uses: [] },
     business: { label: "Business (RustyRose + GPRS)", uses: ["rustyrose", "gprs"] },

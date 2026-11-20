@@ -42,7 +42,10 @@ import java.util.Locale;
  * Power policy (the big battery lever is the parked tier, which runs 24/7):
  *   parked,  battery saver on  -> balanced, every 3 min, batched so the modem sleeps between
  *   parked,  battery saver off -> balanced, every 45 s
- *   driving / probing          -> GPS, every 8 s (5 s if "always use GPS" is on)
+ *   driving                    -> GPS, every 8 s in town / on curves, every 20 s cruising on a
+ *                                 fast straight road (PacePolicy); fixes batched up to 60 s
+ *   probing a departure         -> GPS, every 8 s, unbatched
+ *   "always use GPS" on         -> GPS, every 5 s (the user's explicit choice)
  * Car Bluetooth and Activity Recognition ("entered a vehicle") still switch to GPS instantly,
  * so stretching the parked tier does not make trips start late.
  */
@@ -57,6 +60,7 @@ public class TripService extends Service {
     private String reqKey;
     private String lastNotifText;
     private TrackerHub hub;
+    private final PacePolicy pace = new PacePolicy();
 
     public static void start(Context ctx) {
         ContextCompat.startForegroundService(ctx, new Intent(ctx, TripService.class));
@@ -73,6 +77,7 @@ public class TripService extends Service {
                 float speed = l.hasSpeed() ? l.getSpeed() : -1f;
                 float acc = l.hasAccuracy() ? l.getAccuracy() : 999f;
                 hub.onFix(new TripDetector.Fix(l.getLatitude(), l.getLongitude(), acc, speed, l.getTime()));
+                if (acc <= TripDetector.MAX_ACC_M) pace.onFix(speed, l.hasBearing() ? l.getBearing() : Double.NaN);
             }
             applyMode();
             updateNotification();
@@ -170,12 +175,26 @@ public class TripService extends Service {
     private void applyMode() {
         final LocationRequest req;
         final String key;
-        if (hub.wantsHighAccuracy()) {
-            // Driving or probing a possible departure: GPS. Slightly lower rate unless the user
-            // asked for "always use GPS"; mileage stays accurate because the path is distance-summed.
-            long interval = hub.highAccuracyAlways() ? 5_000 : 8_000;
-            key = "gps:" + interval;
+        if (!hub.isDriving()) pace.reset();
+        if (hub.highAccuracyAlways()) {
+            key = "gps-always";
+            req = new LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 5_000)
+                    .setMinUpdateIntervalMillis(4_000)
+                    .build();
+        } else if (hub.isDriving()) {
+            // Driving: GPS, paced by road type. Fixes may be delivered in batches so the CPU and
+            // app sleep between them; the detector uses each fix's own timestamp, so late
+            // delivery does not change start/end times or miles.
+            long interval = pace.intervalMs();
+            key = "drive:" + interval;
             req = new LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, interval)
+                    .setMinUpdateIntervalMillis(interval / 2)
+                    .setMaxUpdateDelayMillis(PacePolicy.DRIVE_BATCH_MS)
+                    .build();
+        } else if (hub.wantsHighAccuracy()) {
+            // Probing a possible departure: GPS, unbatched, so a real drive starts promptly.
+            key = "probe";
+            req = new LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, PacePolicy.CITY_INTERVAL_MS)
                     .setMinUpdateIntervalMillis(4_000)
                     .build();
         } else if (hub.batterySaver()) {

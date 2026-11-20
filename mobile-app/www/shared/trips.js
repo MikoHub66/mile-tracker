@@ -17,6 +17,7 @@ export const EXCLUDE_REASONS = [
   { id: "bike", label: "Bike" },
   { id: "uber", label: "Uber / taxi" },
   { id: "passenger", label: "Passenger" },
+  { id: "duplicate", label: "Duplicate" },
   { id: "other", label: "Other" },
 ];
 
@@ -276,7 +277,7 @@ export function buildTableCsv(trips) {
         t.excluded ? "No" : "Yes",
         t.excluded ? excludeLabel(t.excludedReason) : "",
         t.gpsMiles == null || t.gpsMiles === "" ? "" : round2(t.gpsMiles).toFixed(2),
-        t.source === "manual" ? "Manual" : "Phone",
+        t.source === "manual" ? "Manual" : t.source === "mileiq" ? "MileIQ import" : "Phone",
         t.autoRule || "",
         t.notes || "",
       ]

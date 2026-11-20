@@ -35,7 +35,7 @@ export function createTable({ api, getVehicles, toast, showOnMap }) {
   // ---------- filters ----------
 
   function fillFilters() {
-    const years = [0, 1, 2, 3].map((n) => now.getFullYear() - n);
+    const years = [0, 1, 2, 3, 4, 5, 6, 7].map((n) => now.getFullYear() - n);
     $("#tvYear").innerHTML = years.map((y) => `<option ${y === st.year ? "selected" : ""}>${y}</option>`).join("");
     $("#tvMonth").innerHTML = `<option value="0">All months</option>` + MONTHS.map((m, i) => `<option value="${i + 1}">${m}</option>`).join("");
     $("#tvUse").innerHTML = `<option value="">All uses</option><option value="business">Business (RustyRose + GPRS)</option>` +
@@ -113,7 +113,7 @@ export function createTable({ api, getVehicles, toast, showOnMap }) {
       <td class="use" style="--c:${useById(t.use).color}"><select data-f="use" aria-label="Use">${useOptions(t.use)}</select></td>
       <td class="status"><select data-f="status" aria-label="Counted in reports">${statusOptions(t)}</select></td>
       <td class="notes"><input data-f="notes" value="${esc(t.notes)}" aria-label="Notes"></td>
-      <td>${t.source === "manual" ? `<span class="tag">manual</span>` : ""}<button class="maplink" data-map>Map</button></td>
+      <td>${t.source === "manual" ? `<span class="tag">manual</span>` : t.source === "mileiq" ? `<span class="tag">MileIQ</span>` : ""}<button class="maplink" data-map>Map</button></td>
     </tr>`;
   }
 
